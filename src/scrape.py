@@ -35,31 +35,36 @@ for i in range(0, 1000):
         f"asjp-{i}-{journal_title}"
     )
     asjp_folder.mkdir(exist_ok=True)
-    volumes_divs = soup.find("aside").find_all("div")
-    for volume_div in volumes_divs:
-        volume_element = volume_div.find("h2").text.strip()
-        _, volume_number, volume_year = list(filter(None, volume_element.split()))
+    volumes_divs = soup.find("aside").find("div").find_all("div", recursive=False)
+    volumes_headers = soup.find("aside").find("div").find_all("h2", recursive=False)
+    for volume_div, volume_header in zip(volumes_divs, volumes_headers):
+        _, volume_number, volume_year = list(filter(None, volume_header.text.split()))
         volume_folder = asjp_folder / f"volume-{volume_number}-year-{volume_year}"
-        issues_div = volume_div.find("div")
-        issue_element = issues_div.find("h3").text
-        _, issue_number, issue_date = list(filter(None, issue_element.split()))
-        issue_folder = volume_folder / f"issue-{issue_number}-date-{issue_date}"
-        issue_folder.mkdir(parents=True, exist_ok=True)
-        articles_div = issues_div.find("div")
-        for article_div in articles_div.find_all("h4"):
-            article_element = article_div.find("a")
-            article_title = article_element.text.strip()
-            article_link = article_element["href"]
-            article_page = requests.get(article_link).content
-            article_soup = BeautifulSoup(article_page, "html.parser")
-            pdf_link = article_soup.find("button", string="Article en ligne").parent[
-                "href"
-            ]
-            pdf_response = requests.get(pdf_link)
+        volume_folder.mkdir(parents=True, exist_ok=True)
 
-            # Clean and truncate the article title
-            cleaned_title = clean_and_truncate_filename(article_title)
-
-            pdf_file = issue_folder / f"{cleaned_title}.pdf"
-            with open(pdf_file, "wb") as f:
-                f.write(pdf_response.content)
+        issues_divs, issues_headers = (
+            volume_div.find_all("div", recursive=False),
+            volume_div.find_all("h3", recursive=False),
+        )
+        for issues_div, issue_header in zip(issues_divs, issues_headers):
+            _, issue_number, issue_date = list(filter(None, issue_header.text.split()))
+            issue_folder = volume_folder / f"issue-{issue_number}-date-{issue_date}"
+            issue_folder.mkdir(parents=True, exist_ok=True)
+            articles_elements = issues_div.find_all("h4")
+            for article_div in articles_elements:
+                article_element = article_div.find("a")
+                article_title = article_element.text.strip()
+                article_link = article_element["href"]
+                article_soup = BeautifulSoup(
+                    requests.get(article_link).content, "html.parser"
+                )
+                pdf_link = article_soup.find(
+                    "button",
+                    string="Article en ligne",
+                ).parent["href"]
+                pdf_response = requests.get(pdf_link)
+                # Clean and truncate the article title
+                cleaned_title = clean_and_truncate_filename(article_title)
+                pdf_file = issue_folder / f"{cleaned_title}.pdf"
+                with open(pdf_file, "wb") as f:
+                    f.write(pdf_response.content)
