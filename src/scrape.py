@@ -5,7 +5,7 @@ import re
 import os
 
 
-def clean_and_truncate_filename(title, max_length=255):
+def clean_and_truncate_filename(title, max_length=100):
     # Clean the title by replacing multiple spaces with a single space
     cleaned_title = re.sub(r"\s+", " ", title.strip())
 
