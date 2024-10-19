@@ -3,6 +3,7 @@ from pathlib import Path
 from bs4 import BeautifulSoup
 import re
 import os
+import time
 
 
 def clean_and_truncate_filename(title, max_length=100):
@@ -71,9 +72,7 @@ for i in range(0, 1000):
                     "button",
                     string="Article en ligne",
                 ).parent["href"]
-                pdf_response = requests.get(pdf_link)
-                # Clean and truncate the article title
-                cleaned_title = clean_and_truncate_filename(article_title)
-                pdf_file = issue_folder / f"{cleaned_title}.pdf"
+                pdf_response = requests.get(pdf_link)     
                 with open(pdf_file, "wb") as f:
                     f.write(pdf_response.content)
+                time.sleep(0.5)
