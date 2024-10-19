@@ -55,6 +55,15 @@ for i in range(0, 1000):
                 article_element = article_div.find("a")
                 article_title = article_element.text.strip()
                 article_link = article_element["href"]
+                
+                # Clean and truncate the article title
+                cleaned_title = clean_and_truncate_filename(article_title)
+                pdf_file = issue_folder / f"{cleaned_title}.pdf"
+                
+                # Check if the file already exists
+                if pdf_file.exists():
+                    continue
+                
                 article_soup = BeautifulSoup(
                     requests.get(article_link).content, "html.parser"
                 )
