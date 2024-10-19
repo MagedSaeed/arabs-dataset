@@ -47,7 +47,7 @@ for i in range(0, 1000):
             volume_div.find_all("h3", recursive=False),
         )
         for issues_div, issue_header in zip(issues_divs, issues_headers):
-            _, issue_number, issue_date = list(filter(None, issue_header.text.split()))
+            _, issue_number, issue_date,*_ = list(filter(None, issue_header.text.strip().split()))
             issue_folder = volume_folder / f"issue-{issue_number}-date-{issue_date}"
             issue_folder.mkdir(parents=True, exist_ok=True)
             articles_elements = issues_div.find_all("h4")
