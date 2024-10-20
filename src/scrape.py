@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 import re
 import os
 import time
-
+from requests.exceptions import RequestException
 
 def clean_and_truncate_filename(title, max_length=100):
     # Clean the title by replacing multiple spaces with a single space
@@ -19,16 +19,37 @@ def clean_and_truncate_filename(title, max_length=100):
         name = name[: max_length - len(ext) - 3] + "..."
     return name + ext
 
+def make_request_with_retry(url, max_retries=5, delay=30):
+    for attempt in range(max_retries):
+        try:
+            response = requests.get(url)
+            if 400 <= response.status_code < 500:
+                # return None on 4xx status codes
+                return None
+            response.raise_for_status()  # Raises an HTTPError for bad responses
+            return response
+        except RequestException as e:
+            print(f"Error accessing {url}: {e}")
+            if attempt < max_retries - 1:
+                print(f"Retrying in {delay} seconds...")
+                time.sleep(delay)
+            else:
+                print(f"Max retries reached for {url}")
+                return None
 
 articles_folder = Path("articles")
 articles_folder.mkdir(parents=True, exist_ok=True)
 
 for i in range(0, 1000):
     url = f"https://www.asjp.cerist.dz/en/Articles/{i}"
-    volumes_page = requests.get(url).content
-    soup = BeautifulSoup(volumes_page, "html.parser")
+    response = make_request_with_retry(url)
+    if response is None:
+        continue
+
+    soup = BeautifulSoup(response.content, "html.parser")
     if not soup.find("aside"):
         continue
+    
     # Get the journal title
     journal_title = soup.find("aside").find("a").text.strip()
     print("processing journal:", i, "-", journal_title)
@@ -48,7 +69,7 @@ for i in range(0, 1000):
             volume_div.find_all("h3", recursive=False),
         )
         for issues_div, issue_header in zip(issues_divs, issues_headers):
-            _, issue_number, issue_date,*_ = list(filter(None, issue_header.text.strip().split()))
+            _, issue_number, issue_date, *_ = list(filter(None, issue_header.text.strip().split()))
             issue_folder = volume_folder / f"issue-{issue_number}-date-{issue_date}"
             issue_folder.mkdir(parents=True, exist_ok=True)
             articles_elements = issues_div.find_all("h4")
@@ -65,14 +86,19 @@ for i in range(0, 1000):
                 if pdf_file.exists():
                     continue
                 
-                article_soup = BeautifulSoup(
-                    requests.get(article_link).content, "html.parser"
-                )
-                pdf_link = article_soup.find(
-                    "button",
-                    string="Article en ligne",
-                ).parent["href"]
-                pdf_response = requests.get(pdf_link)     
-                with open(pdf_file, "wb") as f:
-                    f.write(pdf_response.content)
-                time.sleep(0.5)
+                article_response = make_request_with_retry(article_link)
+                if article_response is None:
+                    continue
+
+                article_soup = BeautifulSoup(article_response.content, "html.parser")
+                pdf_button = article_soup.find("button", string="Article en ligne")
+                if pdf_button and pdf_button.parent:
+                    pdf_link = pdf_button.parent["href"]
+                    pdf_response = make_request_with_retry(pdf_link)
+                    if pdf_response is None:
+                        continue
+                    
+                    with open(pdf_file, "wb") as f:
+                        f.write(pdf_response.content)
+                
+                time.sleep(1)
