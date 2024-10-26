@@ -123,11 +123,14 @@ for i in range(0, 1000):
                 # Clean and truncate the article title
                 cleaned_title = clean_and_truncate_filename(article_title)
                 pdf_file = issue_folder / f"{cleaned_title}.pdf"
+                json_file = issue_folder / f"{cleaned_title}.json"
                 pdf_already_downloaded = False
                 try:
                     # Check if the file already exists
                     if pdf_file.exists():
                         pdf_already_downloaded = True
+                    if json_file.exists() and pdf_already_downloaded:
+                        continue
                     article_response = make_request_with_retry(article_link)
                     if article_response is None:
                         continue
@@ -187,7 +190,6 @@ for i in range(0, 1000):
                         "abstract": abstract_text,
                         "keywords": keywords_text,
                     }
-                    json_file = issue_folder / f"{cleaned_title}.json"
                     json.dump(
                         article_json_metadata,
                         json_file.open("w"),
